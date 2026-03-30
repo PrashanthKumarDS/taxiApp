@@ -1,0 +1,1106 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:taxi_app/core/constants/feature_flags.dart';
+import 'package:taxi_app/core/services/geocoding_service.dart';
+import 'package:taxi_app/core/services/user_firestore_service.dart';
+import 'package:taxi_app/core/theme/app_theme.dart';
+import 'package:taxi_app/core/utils/ride_status.dart';
+import 'package:taxi_app/features/map/widgets/taxi_google_map.dart';
+import 'package:taxi_app/features/user/screens/user_history_screen.dart';
+import 'package:taxi_app/features/user/screens/user_profile_screen.dart';
+import 'package:taxi_app/models/geo_lat_lng.dart';
+import 'package:taxi_app/models/lat_lng_address.dart';
+import 'package:taxi_app/models/ride_model.dart';
+import 'package:taxi_app/models/vehicle_type.dart';
+import 'package:taxi_app/providers/map_provider.dart';
+import 'package:taxi_app/providers/ride_provider.dart';
+import 'package:taxi_app/providers/vehicle_provider.dart';
+import 'package:taxi_app/shared/widgets/primary_button.dart';
+
+class UserHomeScreen extends StatefulWidget {
+  const UserHomeScreen({super.key});
+
+  @override
+  State<UserHomeScreen> createState() => _UserHomeScreenState();
+}
+
+class _UserHomeScreenState extends State<UserHomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<MapProvider>().refreshMyLocation();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (FeatureFlags.googleMapsEnabled) {
+      return const _UserHomeMapBody();
+    }
+    return const _UserHomeManualBody();
+  }
+}
+
+enum _PickPhase { pickup, drop }
+
+// --- Manual location (no map) ---
+
+class _UserHomeManualBody extends StatefulWidget {
+  const _UserHomeManualBody();
+
+  @override
+  State<_UserHomeManualBody> createState() => _UserHomeManualBodyState();
+}
+
+class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
+  final _pickQuery = TextEditingController();
+  final _dropQuery = TextEditingController();
+  final _pickLat = TextEditingController();
+  final _pickLng = TextEditingController();
+  final _pickAddr = TextEditingController();
+  final _dropLat = TextEditingController();
+  final _dropLng = TextEditingController();
+  final _dropAddr = TextEditingController();
+  bool _pickLookupBusy = false;
+  bool _dropLookupBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _hydrateFromProvider());
+  }
+
+  void _hydrateFromProvider() {
+    if (!mounted) return;
+    final map = context.read<MapProvider>();
+    final p = map.pickup;
+    final d = map.drop;
+    if (p != null) {
+      _pickLat.text = p.latitude.toString();
+      _pickLng.text = p.longitude.toString();
+      _pickQuery.text = p.address ?? '';
+      _pickAddr.text = '';
+    }
+    if (d != null) {
+      _dropLat.text = d.latitude.toString();
+      _dropLng.text = d.longitude.toString();
+      _dropQuery.text = d.address ?? '';
+      _dropAddr.text = '';
+    }
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _pickQuery.dispose();
+    _dropQuery.dispose();
+    _pickLat.dispose();
+    _pickLng.dispose();
+    _pickAddr.dispose();
+    _dropLat.dispose();
+    _dropLng.dispose();
+    _dropAddr.dispose();
+    super.dispose();
+  }
+
+  double? _parseCoord(String s) =>
+      double.tryParse(s.trim().replaceAll(',', '.'));
+
+  Future<void> _lookupPickup() async {
+    final map = context.read<MapProvider>();
+    final geo = context.read<GeocodingService>();
+    setState(() => _pickLookupBusy = true);
+    try {
+      final r = await geo.resolvePlace(_pickQuery.text);
+      if (!mounted) return;
+      if (r == null) {
+        _toast(
+          'Could not find that place. Try "Udupi, Karnataka" or use coordinates below.',
+        );
+        return;
+      }
+      final note = _pickAddr.text.trim();
+      final addr =
+          note.isEmpty ? (r.address ?? _pickQuery.text) : '${r.address} · $note';
+      _pickLat.text = r.latitude.toString();
+      _pickLng.text = r.longitude.toString();
+      map.setPickup(LatLngAddress(
+        latitude: r.latitude,
+        longitude: r.longitude,
+        address: addr,
+      ));
+      await map.fetchRoute();
+    } finally {
+      if (mounted) setState(() => _pickLookupBusy = false);
+    }
+  }
+
+  Future<void> _lookupDrop() async {
+    final map = context.read<MapProvider>();
+    final geo = context.read<GeocodingService>();
+    setState(() => _dropLookupBusy = true);
+    try {
+      final r = await geo.resolvePlace(_dropQuery.text);
+      if (!mounted) return;
+      if (r == null) {
+        _toast(
+          'Could not find that place. Try "Mangaluru, Karnataka" or coordinates below.',
+        );
+        return;
+      }
+      final note = _dropAddr.text.trim();
+      final addr =
+          note.isEmpty ? (r.address ?? _dropQuery.text) : '${r.address} · $note';
+      _dropLat.text = r.latitude.toString();
+      _dropLng.text = r.longitude.toString();
+      map.setDrop(LatLngAddress(
+        latitude: r.latitude,
+        longitude: r.longitude,
+        address: addr,
+      ));
+      await map.fetchRoute();
+    } finally {
+      if (mounted) setState(() => _dropLookupBusy = false);
+    }
+  }
+
+  Future<void> _applyPickup() async {
+    final lat = _parseCoord(_pickLat.text);
+    final lng = _parseCoord(_pickLng.text);
+    if (lat == null || lng == null) {
+      _toast('Enter valid pickup latitude and longitude');
+      return;
+    }
+    final map = context.read<MapProvider>();
+    final addr = _pickAddr.text.trim();
+    map.setPickup(LatLngAddress(
+      latitude: lat,
+      longitude: lng,
+      address: addr.isEmpty ? null : addr,
+    ));
+    await map.fetchRoute();
+  }
+
+  Future<void> _applyDrop() async {
+    final lat = _parseCoord(_dropLat.text);
+    final lng = _parseCoord(_dropLng.text);
+    if (lat == null || lng == null) {
+      _toast('Enter valid drop latitude and longitude');
+      return;
+    }
+    final map = context.read<MapProvider>();
+    final addr = _dropAddr.text.trim();
+    map.setDrop(LatLngAddress(
+      latitude: lat,
+      longitude: lng,
+      address: addr.isEmpty ? null : addr,
+    ));
+    await map.fetchRoute();
+  }
+
+  Future<void> _useGpsPickup() async {
+    final map = context.read<MapProvider>();
+    await map.refreshMyLocation();
+    if (!mounted) return;
+    final ll = map.currentLatLng;
+    if (ll == null) {
+      _toast('Location permission or GPS unavailable');
+      return;
+    }
+    _pickQuery.text = 'Current location';
+    _pickLat.text = ll.latitude.toString();
+    _pickLng.text = ll.longitude.toString();
+    map.setPickup(LatLngAddress(
+      latitude: ll.latitude,
+      longitude: ll.longitude,
+      address: 'Current location',
+    ));
+    await map.fetchRoute();
+    setState(() {});
+  }
+
+  void _toast(String m) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.cardDark,
+                    Colors.black.withValues(alpha: 0.92),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.edit_location_alt_outlined,
+                        size: 72, color: Colors.grey.shade600),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Where to?',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: Colors.grey.shade400,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 48),
+                      child: Text(
+                        'Type place names like Udupi or Mangaluru, Karnataka — we look them up. Fine‑tune with coordinates if needed.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 16,
+            right: 16,
+            child: Row(
+              children: [
+                IconButton.filledTonal(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const UserHistoryScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.history),
+                ),
+                const Spacer(),
+                IconButton.filledTonal(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const UserProfileScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.person_outline),
+                ),
+              ],
+            ),
+          ),
+          DraggableScrollableSheet(
+            initialChildSize: 0.55,
+            minChildSize: 0.35,
+            maxChildSize: 0.88,
+            builder: (context, scrollCtrl) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: [
+                    BoxShadow(
+                      blurRadius: 24,
+                      offset: Offset(0, -4),
+                      color: Colors.black54,
+                    ),
+                  ],
+                ),
+                child: ListView(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade700,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Selector<RideProvider, RideModel?>(
+                      selector: (_, r) => r.activeRide,
+                      builder: (context, ride, _) {
+                        if (ride != null) {
+                          return _ActiveRideCard(
+                            ride: ride,
+                            onCancel: () =>
+                                context.read<RideProvider>().cancelActiveRide(),
+                          );
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Plan trip',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: _useGpsPickup,
+                              icon: const Icon(Icons.my_location, size: 20),
+                              label: const Text('Use device location as pickup'),
+                            ),
+                            const SizedBox(height: 8),
+                            Text('Pickup',
+                                style: Theme.of(context).textTheme.titleSmall),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _pickQuery,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                labelText: 'Place name',
+                                hintText: 'e.g. Udupi, Karnataka',
+                                isDense: true,
+                              ),
+                            ),
+                            TextField(
+                              controller: _pickAddr,
+                              decoration: const InputDecoration(
+                                labelText: 'Landmark (optional)',
+                                hintText: 'e.g. near City bus stand',
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            FilledButton.tonal(
+                              onPressed:
+                                  _pickLookupBusy ? null : () => _lookupPickup(),
+                              child: _pickLookupBusy
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Find pickup'),
+                            ),
+                            const SizedBox(height: 8),
+                            ExpansionTile(
+                              tilePadding: EdgeInsets.zero,
+                              title: Text(
+                                'Latitude & longitude',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _pickLat,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Latitude',
+                                          isDense: true,
+                                        ),
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                                decimal: true, signed: true),
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                              RegExp(r'[-0-9.,]')),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _pickLng,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Longitude',
+                                          isDense: true,
+                                        ),
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                                decimal: true, signed: true),
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                              RegExp(r'[-0-9.,]')),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: _applyPickup,
+                                    child: const Text('Apply coordinates'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 24),
+                            Text('Drop',
+                                style: Theme.of(context).textTheme.titleSmall),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _dropQuery,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: const InputDecoration(
+                                labelText: 'Place name',
+                                hintText: 'e.g. Mangaluru, Karnataka',
+                                isDense: true,
+                              ),
+                            ),
+                            TextField(
+                              controller: _dropAddr,
+                              decoration: const InputDecoration(
+                                labelText: 'Landmark (optional)',
+                                hintText: 'e.g. KSRTC stand',
+                                isDense: true,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            FilledButton.tonal(
+                              onPressed:
+                                  _dropLookupBusy ? null : () => _lookupDrop(),
+                              child: _dropLookupBusy
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Find drop-off'),
+                            ),
+                            const SizedBox(height: 8),
+                            ExpansionTile(
+                              tilePadding: EdgeInsets.zero,
+                              title: Text(
+                                'Latitude & longitude',
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _dropLat,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Latitude',
+                                          isDense: true,
+                                        ),
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                                decimal: true, signed: true),
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                              RegExp(r'[-0-9.,]')),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _dropLng,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Longitude',
+                                          isDense: true,
+                                        ),
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                                decimal: true, signed: true),
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                              RegExp(r'[-0-9.,]')),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: _applyDrop,
+                                    child: const Text('Apply coordinates'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Consumer<MapProvider>(
+                              builder: (context, map, _) {
+                                return Text(
+                                  map.routeLoading
+                                      ? 'Calculating route…'
+                                      : 'Distance ${(map.distanceMeters / 1000).toStringAsFixed(1)} km · '
+                                          '${(map.durationSeconds / 60).ceil()} min',
+                                  style: TextStyle(color: Colors.grey.shade400),
+                                );
+                              },
+                            ),
+                            SizedBox(height: 16 + bottomInset * 0.25),
+                            PrimaryButton(
+                              label: 'Choose vehicle & price',
+                              onPressed: () =>
+                                  _openVehicleSheet(context, manualMode: true),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- Google Map mode ---
+
+class _UserHomeMapBody extends StatefulWidget {
+  const _UserHomeMapBody();
+
+  @override
+  State<_UserHomeMapBody> createState() => _UserHomeMapBodyState();
+}
+
+class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
+  GoogleMapController? _mapCtrl;
+  _PickPhase _phase = _PickPhase.pickup;
+
+  Future<void> _animateTo(LatLng t) async {
+    await _mapCtrl?.animateCamera(
+      CameraUpdate.newLatLngZoom(t, 15),
+    );
+  }
+
+  LatLng _toLatLng(GeoLatLng g) => LatLng(g.latitude, g.longitude);
+
+  Set<Marker> _markers({
+    required MapProvider map,
+    GeoLatLng? driver,
+    RideModel? ride,
+  }) {
+    final m = <Marker>{};
+    final p = map.pickup;
+    final d = map.drop;
+    if (p != null) {
+      m.add(Marker(
+        markerId: const MarkerId('pickup'),
+        position: _toLatLng(p.position),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: InfoWindow(title: 'Pickup', snippet: p.address),
+      ));
+    }
+    if (d != null) {
+      m.add(Marker(
+        markerId: const MarkerId('drop'),
+        position: _toLatLng(d.position),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: InfoWindow(title: 'Drop', snippet: d.address),
+      ));
+    }
+    final did = ride?.driverId;
+    if (driver != null && did != null) {
+      m.add(Marker(
+        markerId: MarkerId('drv_$did'),
+        position: _toLatLng(driver),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        infoWindow: const InfoWindow(title: 'Your driver'),
+      ));
+    }
+    return m;
+  }
+
+  Set<Polyline> _polylines(MapProvider map) {
+    if (map.routePoints.length < 2) return {};
+    return {
+      Polyline(
+        polylineId: const PolylineId('route'),
+        color: AppTheme.accent,
+        width: 5,
+        points: map.routePoints.map(_toLatLng).toList(),
+      ),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          Selector<RideProvider, RideModel?>(
+            selector: (_, r) => r.activeRide,
+            builder: (context, activeRide, __) {
+              return Consumer<MapProvider>(
+                builder: (context, map, _) {
+                  final target = map.currentLatLng ??
+                      map.pickup?.position ??
+                      const GeoLatLng(37.7749, -122.4194);
+                  final driverId = activeRide?.driverId;
+
+                  Widget mapChild = TaxiGoogleMap(
+                    initialTarget: _toLatLng(target),
+                    markers: _markers(map: map, driver: null, ride: activeRide),
+                    polylines: _polylines(map),
+                    padding: EdgeInsets.only(bottom: 200 + bottomInset),
+                    onMapCreated: (c) => _mapCtrl = c,
+                    onTap: (ll) {
+                      final addr = LatLngAddress(
+                        latitude: ll.latitude,
+                        longitude: ll.longitude,
+                        address:
+                            '${ll.latitude.toStringAsFixed(5)}, ${ll.longitude.toStringAsFixed(5)}',
+                      );
+                      if (_phase == _PickPhase.pickup) {
+                        map.setPickup(addr);
+                      } else {
+                        map.setDrop(addr);
+                      }
+                      map.fetchRoute();
+                      _animateTo(ll);
+                    },
+                  );
+
+                  if (driverId != null && driverId.isNotEmpty) {
+                    mapChild = StreamBuilder<GeoLatLng?>(
+                      stream: context
+                          .read<UserFirestoreService>()
+                          .watchDriverLatLng(driverId),
+                      builder: (context, snap) {
+                        final drv = snap.data;
+                        return TaxiGoogleMap(
+                          initialTarget: _toLatLng(target),
+                          markers: _markers(
+                            map: map,
+                            driver: drv,
+                            ride: activeRide,
+                          ),
+                          polylines: _polylines(map),
+                          padding: EdgeInsets.only(bottom: 200 + bottomInset),
+                          onMapCreated: (c) => _mapCtrl = c,
+                          onTap: (ll) {
+                            final addr = LatLngAddress(
+                              latitude: ll.latitude,
+                              longitude: ll.longitude,
+                              address:
+                                  '${ll.latitude.toStringAsFixed(5)}, ${ll.longitude.toStringAsFixed(5)}',
+                            );
+                            if (_phase == _PickPhase.pickup) {
+                              map.setPickup(addr);
+                            } else {
+                              map.setDrop(addr);
+                            }
+                            map.fetchRoute();
+                            _animateTo(ll);
+                          },
+                        );
+                      },
+                    );
+                  }
+
+                  return mapChild;
+                },
+              );
+            },
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 16,
+            right: 16,
+            child: Row(
+              children: [
+                IconButton.filledTonal(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const UserHistoryScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.history),
+                ),
+                const Spacer(),
+                IconButton.filledTonal(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const UserProfileScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.person_outline),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 220 + bottomInset,
+            child: Column(
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'loc',
+                  onPressed: () async {
+                    final map = context.read<MapProvider>();
+                    await map.refreshMyLocation();
+                    if (!context.mounted) return;
+                    final ll = map.currentLatLng;
+                    if (ll != null) await _animateTo(_toLatLng(ll));
+                  },
+                  child: const Icon(Icons.my_location),
+                ),
+              ],
+            ),
+          ),
+          DraggableScrollableSheet(
+            initialChildSize: 0.28,
+            minChildSize: 0.22,
+            maxChildSize: 0.55,
+            builder: (context, scrollCtrl) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: AppTheme.cardDark,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: [
+                    BoxShadow(
+                      blurRadius: 24,
+                      offset: Offset(0, -4),
+                      color: Colors.black54,
+                    ),
+                  ],
+                ),
+                child: ListView(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade700,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Selector<RideProvider, RideModel?>(
+                      selector: (_, r) => r.activeRide,
+                      builder: (context, ride, _) {
+                        if (ride != null) {
+                          return _ActiveRideCard(
+                            ride: ride,
+                            onCancel: () =>
+                                context.read<RideProvider>().cancelActiveRide(),
+                          );
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Plan trip',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 12),
+                            SegmentedButton<_PickPhase>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: _PickPhase.pickup,
+                                  label: Text('Pickup'),
+                                ),
+                                ButtonSegment(
+                                  value: _PickPhase.drop,
+                                  label: Text('Drop'),
+                                ),
+                              ],
+                              selected: {_phase},
+                              onSelectionChanged: (s) {
+                                setState(() => _phase = s.first);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            Consumer<MapProvider>(
+                              builder: (context, map, _) {
+                                return Text(
+                                  map.routeLoading
+                                      ? 'Calculating route…'
+                                      : 'Distance ${(map.distanceMeters / 1000).toStringAsFixed(1)} km · '
+                                          '${(map.durationSeconds / 60).ceil()} min',
+                                  style: TextStyle(color: Colors.grey.shade400),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            PrimaryButton(
+                              label: 'Choose vehicle & price',
+                              onPressed: () =>
+                                  _openVehicleSheet(context, manualMode: false),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
+  final map = context.read<MapProvider>();
+  final ride = context.read<RideProvider>();
+  if (map.pickup == null || map.drop == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          manualMode
+              ? 'Set pickup and drop (place name or coordinates) first'
+              : 'Choose pickup and drop on the map',
+        ),
+      ),
+    );
+    return;
+  }
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) {
+      return Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        child: StatefulBuilder(
+          builder: (context, setModalState) {
+            return Consumer<VehicleProvider>(
+              builder: (context, v, _) {
+                final est = v.estimatePrice(
+                  distanceMeters: map.distanceMeters,
+                  durationSeconds: map.durationSeconds,
+                );
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Choose ride',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 16),
+                    ...VehicleType.values.map((t) {
+                      final sel = v.selected == t;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Material(
+                          color: sel
+                              ? AppTheme.accent.withValues(alpha: 0.15)
+                              : AppTheme.cardDark,
+                          borderRadius: BorderRadius.circular(14),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () {
+                              v.select(t);
+                              setModalState(() {});
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    sel
+                                        ? Icons.radio_button_checked
+                                        : Icons.radio_button_off,
+                                    color: AppTheme.accent,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          t.label,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        Text(
+                                          t.description,
+                                          style: TextStyle(
+                                            color: Colors.grey.shade500,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Estimated ${est.toStringAsFixed(0)} (cash)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: ride.busy ? 'Requesting…' : 'Request ride',
+                      loading: ride.busy,
+                      onPressed: ride.busy
+                          ? null
+                          : () async {
+                              await ride.createRideRequest(
+                                pickup: map.pickup!,
+                                drop: map.drop!,
+                                vehicle: v.selected,
+                                estimatedPrice: est,
+                                distanceMeters: map.distanceMeters,
+                                durationSeconds: map.durationSeconds,
+                                polyline: map.encodedPolyline,
+                              );
+                              if (!ctx.mounted) return;
+                              if (ride.error != null) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(content: Text(ride.error!)),
+                                );
+                                return;
+                              }
+                              Navigator.pop(ctx);
+                            },
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      );
+    },
+  );
+}
+
+class _ActiveRideCard extends StatelessWidget {
+  const _ActiveRideCard({required this.ride, required this.onCancel});
+
+  final RideModel ride;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final st = ride.status;
+    String title;
+    switch (st) {
+      case RideStatus.searching:
+        title = 'Finding a driver…';
+        break;
+      case RideStatus.accepted:
+        title = 'Driver on the way';
+        break;
+      case RideStatus.arrived:
+        title = 'Driver has arrived';
+        break;
+      case RideStatus.started:
+        title = 'Trip in progress';
+        break;
+      case RideStatus.completed:
+        title =
+            'Trip completed · Cash ${ride.finalPrice?.toStringAsFixed(0) ?? '-'}';
+        break;
+      case RideStatus.cancelled:
+        title = 'Cancelled';
+        break;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        if (ride.otp != null &&
+            (st == RideStatus.accepted || st == RideStatus.arrived)) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.pin_outlined, color: AppTheme.accent),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Show OTP to driver',
+                      style:
+                          TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                    ),
+                    Text(
+                      ride.otp!,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 4,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (st == RideStatus.searching) ...[
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: onCancel,
+            child: const Text('Cancel request'),
+          ),
+        ],
+        if (st == RideStatus.completed || st == RideStatus.cancelled) ...[
+          const SizedBox(height: 12),
+          PrimaryButton(
+            label: 'New ride',
+            onPressed: () {
+              context.read<RideProvider>().clearLocalRide();
+              context.read<MapProvider>().clearTripSelection();
+            },
+          ),
+        ],
+      ],
+    );
+  }
+}

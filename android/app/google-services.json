@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "606763588417",
+    "project_id": "mytowncabs-3eadc",
+    "storage_bucket": "mytowncabs-3eadc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:606763588417:android:89b293e3671474c4d61fc0",
+        "android_client_info": {
+          "package_name": "com.mytowncabs.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAW0HVBpHg-vijWzzujjqsb4o6Ql5Bfuvo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
