@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:taxi_app/core/constants/feature_flags.dart';
+import 'package:taxi_app/core/services/user_firestore_service.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
 import 'package:taxi_app/core/utils/user_role.dart';
 import 'package:taxi_app/features/auth/screens/profile_setup_screen.dart';
@@ -153,17 +154,32 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         onPressed: () async {
                           await auth.verifyOtp(_otpCtrl.text);
                           if (!context.mounted) return;
-                          // Navigate to profile setup if authentication successful
                           if (auth.firebaseUser != null &&
                               auth.errorMessage == null) {
+                            // Check if returning user already has a profile.
+                            final users =
+                                context.read<UserFirestoreService>();
+                            final existing = await users
+                                .fetchUser(auth.firebaseUser!.uid);
                             if (!context.mounted) return;
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (context) => ProfileSetupScreen(
-                                  phoneNumber: _normalizePhone(_phoneCtrl.text),
+                            if (existing != null) {
+                              // Returning user — let RoleRouter handle it.
+                              await auth.completeProfileAfterSignIn();
+                              if (context.mounted) {
+                                Navigator.of(context)
+                                    .popUntil((route) => route.isFirst);
+                              }
+                            } else {
+                              // New user — go to profile setup.
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (context) => ProfileSetupScreen(
+                                    phoneNumber:
+                                        _normalizePhone(_phoneCtrl.text),
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            }
                           }
                         },
                       ),

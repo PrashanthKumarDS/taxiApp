@@ -8,6 +8,7 @@ import 'package:taxi_app/core/services/geocoding_service.dart';
 import 'package:taxi_app/core/services/fcm_background.dart';
 import 'package:taxi_app/core/services/fcm_service.dart';
 import 'package:taxi_app/core/services/location_service.dart';
+import 'package:taxi_app/core/services/places_service.dart';
 import 'package:taxi_app/core/services/ride_firestore_service.dart';
 import 'package:taxi_app/core/services/user_firestore_service.dart';
 import 'package:taxi_app/core/firebase/firebase_bootstrap.dart';
@@ -29,6 +30,7 @@ Future<void> main() async {
   final directions = DirectionsService();
   final geocoding = GeocodingService();
   final location = LocationService();
+  final places = PlacesService();
 
   runApp(
     MultiProvider(
@@ -39,6 +41,7 @@ Future<void> main() async {
         Provider<DirectionsService>.value(value: directions),
         Provider<GeocodingService>.value(value: geocoding),
         Provider<LocationService>.value(value: location),
+        Provider<PlacesService>.value(value: places),
         ChangeNotifierProvider(
           create: (c) => AuthProvider(c.read<AuthService>(), c.read<UserFirestoreService>()),
         ),

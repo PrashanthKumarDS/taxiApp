@@ -16,8 +16,12 @@ class DriverProfileScreen extends StatelessWidget {
         children: [
           ListTile(
             leading: const CircleAvatar(child: Icon(Icons.local_taxi)),
-            title: Text(u?.name ?? 'Driver'),
-            subtitle: Text(u?.phone ?? ''),
+            title: Text(u?.name ?? u?.email ?? 'Driver'),
+            subtitle: Text(
+              u?.phone != null && u!.phone.isNotEmpty
+                  ? u.phone
+                  : u?.email ?? '',
+            ),
           ),
           ListTile(
             leading: Icon(
@@ -31,7 +35,12 @@ class DriverProfileScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Sign out'),
-            onTap: () async => await auth.logout(),
+            onTap: () async {
+              await auth.logout();
+              if (context.mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            },
           ),
         ],
       ),

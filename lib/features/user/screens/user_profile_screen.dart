@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
 import 'package:taxi_app/core/utils/user_role.dart';
+import 'package:taxi_app/features/user/screens/about_us_screen.dart';
+import 'package:taxi_app/features/user/screens/user_history_screen.dart';
 import 'package:taxi_app/providers/auth_provider.dart';
 
 class UserProfileScreen extends StatelessWidget {
@@ -47,10 +49,27 @@ class UserProfileScreen extends StatelessWidget {
             ),
           ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(u?.name ?? 'Rider'),
-            subtitle: Text(u?.phone ?? ''),
+            title: Text(u?.name ?? u?.email ?? 'Rider'),
+            subtitle: Text(
+              u?.phone != null && u!.phone.isNotEmpty
+                  ? u.phone
+                  : u?.email ?? '',
+            ),
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: const Text('My Rides'),
+            subtitle: const Text('View your ride history'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const UserHistoryScreen(),
+                ),
+              );
+            },
+          ),
           if (u?.role == UserRole.user)
             ListTile(
               leading: const Icon(Icons.local_taxi_outlined),
@@ -74,9 +93,27 @@ class UserProfileScreen extends StatelessWidget {
                     },
             ),
           ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About Us'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const AboutUsScreen(),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+          ListTile(
             leading: const Icon(Icons.logout),
             title: Text(auth.previewMode ? 'Exit preview' : 'Sign out'),
-            onTap: () async => await auth.logout(),
+            onTap: () async {
+              await auth.logout();
+              if (context.mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            },
           ),
         ],
       ),

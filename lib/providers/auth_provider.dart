@@ -49,6 +49,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
+    final prevUid = _firebaseUser?.uid;
     _firebaseUser = user;
     await _profileSub?.cancel();
     _profileSub = null;
@@ -56,7 +57,10 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    _appUser = null;
+    // Only clear _appUser when the user actually changes (sign-out or different user).
+    if (user?.uid != prevUid) {
+      _appUser = null;
+    }
     if (user != null) {
       _profileSub = _users.watchUser(user.uid).listen((profile) {
         _appUser = profile;
@@ -91,7 +95,7 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      await _users.ensureUserProfile(
+      _appUser = await _users.ensureUserProfile(
         firebaseUser: u,
         desiredRole: _signupRole,
         displayName: displayName,
@@ -170,9 +174,9 @@ class AuthProvider extends ChangeNotifier {
         verificationId: vid,
         smsCode: smsCode.trim(),
       );
-      await _auth.signInWithCredential(cred);
-      // Don't complete profile here - let user enter name first
-      // Profile will be completed in ProfileSetupScreen
+      final result = await _auth.signInWithCredential(cred);
+      // Set immediately so callers don't have to wait for authStateChanges stream.
+      _firebaseUser = result.user;
     } on FirebaseAuthException catch (e) {
       _errorMessage = e.message ?? e.code;
     } catch (e) {

@@ -5,7 +5,7 @@ class AppConstants {
 
   static const String googleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',
-    defaultValue: '',
+    defaultValue: 'AIzaSyAW0HVBpHg-vijWzzujjqsb4o6Ql5Bfuvo',
   );
 
   /// Demo: add E.164 numbers (e.g. +15551234567) to treat as admin on first signup.

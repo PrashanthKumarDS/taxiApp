@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:taxi_app/core/utils/user_role.dart';
 import 'package:taxi_app/features/admin/screens/admin_shell_screen.dart';
 import 'package:taxi_app/features/auth/screens/login_options_screen.dart';
+import 'package:taxi_app/features/auth/screens/profile_setup_screen.dart';
 import 'package:taxi_app/features/driver/screens/driver_home_screen.dart';
 import 'package:taxi_app/features/user/screens/user_home_screen.dart';
 import 'package:taxi_app/models/app_user.dart';
@@ -18,6 +19,7 @@ class RoleRouter extends StatelessWidget {
         hasFirebaseUser: a.firebaseUser != null,
         appUser: a.appUser,
         previewMode: a.previewMode,
+        phoneNumber: a.firebaseUser?.phoneNumber,
       ),
       builder: (context, state, _) {
         if (state.hasFirebaseUser &&
@@ -39,6 +41,13 @@ class RoleRouter extends StatelessWidget {
         if (state.appUser == null) {
           return const LoginOptionsScreen();
         }
+        // Incomplete profile — redirect to setup so user can enter their name.
+        if (!state.previewMode &&
+            (state.appUser!.name == null || state.appUser!.name!.isEmpty)) {
+          return ProfileSetupScreen(
+            phoneNumber: state.phoneNumber ?? '',
+          );
+        }
         switch (state.appUser!.role) {
           case UserRole.user:
             return const UserHomeScreen();
@@ -57,19 +66,23 @@ class _AuthRouteState {
     required this.hasFirebaseUser,
     required this.appUser,
     required this.previewMode,
+    this.phoneNumber,
   });
 
   final bool hasFirebaseUser;
   final AppUser? appUser;
   final bool previewMode;
+  final String? phoneNumber;
 
   @override
   bool operator ==(Object other) =>
       other is _AuthRouteState &&
       other.hasFirebaseUser == hasFirebaseUser &&
       other.appUser == appUser &&
-      other.previewMode == previewMode;
+      other.previewMode == previewMode &&
+      other.phoneNumber == phoneNumber;
 
   @override
-  int get hashCode => Object.hash(hasFirebaseUser, appUser, previewMode);
+  int get hashCode =>
+      Object.hash(hasFirebaseUser, appUser, previewMode, phoneNumber);
 }

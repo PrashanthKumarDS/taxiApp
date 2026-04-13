@@ -30,6 +30,7 @@ class TaxiGoogleMap extends StatelessWidget {
       myLocationButtonEnabled: false,
       mapToolbarEnabled: false,
       compassEnabled: false,
+      zoomControlsEnabled: false,
       markers: markers,
       polylines: polylines,
       padding: padding,

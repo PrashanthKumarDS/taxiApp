@@ -8,6 +8,7 @@ import 'package:taxi_app/core/services/user_firestore_service.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
 import 'package:taxi_app/core/utils/ride_status.dart';
 import 'package:taxi_app/features/map/widgets/taxi_google_map.dart';
+import 'package:taxi_app/features/user/screens/location_search_screen.dart';
 import 'package:taxi_app/features/user/screens/user_history_screen.dart';
 import 'package:taxi_app/features/user/screens/user_profile_screen.dart';
 import 'package:taxi_app/models/geo_lat_lng.dart';
@@ -43,8 +44,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     return const _UserHomeManualBody();
   }
 }
-
-enum _PickPhase { pickup, drop }
 
 // --- Manual location (no map) ---
 
@@ -583,7 +582,6 @@ class _UserHomeMapBody extends StatefulWidget {
 
 class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
   GoogleMapController? _mapCtrl;
-  _PickPhase _phase = _PickPhase.pickup;
 
   Future<void> _animateTo(LatLng t) async {
     await _mapCtrl?.animateCamera(
@@ -641,6 +639,28 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
     };
   }
 
+  Future<void> _openSearch(
+    BuildContext context, {
+    required String title,
+    required bool isPickup,
+  }) async {
+    final map = context.read<MapProvider>();
+    final result = await LocationSearchScreen.open(
+      context,
+      title: title,
+      biasLocation: map.currentLatLng,
+    );
+    if (result == null || !context.mounted) return;
+    if (isPickup) {
+      map.setPickup(result);
+    } else {
+      map.setDrop(result);
+    }
+    await map.fetchRoute();
+    final ll = LatLng(result.latitude, result.longitude);
+    _animateTo(ll);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -671,7 +691,7 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
                         address:
                             '${ll.latitude.toStringAsFixed(5)}, ${ll.longitude.toStringAsFixed(5)}',
                       );
-                      if (_phase == _PickPhase.pickup) {
+                      if (map.pickup == null) {
                         map.setPickup(addr);
                       } else {
                         map.setDrop(addr);
@@ -705,7 +725,7 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
                               address:
                                   '${ll.latitude.toStringAsFixed(5)}, ${ll.longitude.toStringAsFixed(5)}',
                             );
-                            if (_phase == _PickPhase.pickup) {
+                            if (map.pickup == null) {
                               map.setPickup(addr);
                             } else {
                               map.setDrop(addr);
@@ -816,39 +836,55 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Text(
-                              'Plan trip',
+                              'Where to?',
                               style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 12),
-                            SegmentedButton<_PickPhase>(
-                              segments: const [
-                                ButtonSegment(
-                                  value: _PickPhase.pickup,
-                                  label: Text('Pickup'),
-                                ),
-                                ButtonSegment(
-                                  value: _PickPhase.drop,
-                                  label: Text('Drop'),
-                                ),
-                              ],
-                              selected: {_phase},
-                              onSelectionChanged: (s) {
-                                setState(() => _phase = s.first);
-                              },
                             ),
                             const SizedBox(height: 12),
                             Consumer<MapProvider>(
                               builder: (context, map, _) {
-                                return Text(
-                                  map.routeLoading
-                                      ? 'Calculating route…'
-                                      : 'Distance ${(map.distanceMeters / 1000).toStringAsFixed(1)} km · '
-                                          '${(map.durationSeconds / 60).ceil()} min',
-                                  style: TextStyle(color: Colors.grey.shade400),
+                                return Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _SearchField(
+                                      icon: Icons.circle,
+                                      iconColor: Colors.green,
+                                      hint: 'Search pickup location',
+                                      value: map.pickup?.address,
+                                      onTap: () => _openSearch(
+                                        context,
+                                        title: 'Search pickup',
+                                        isPickup: true,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    _SearchField(
+                                      icon: Icons.circle,
+                                      iconColor: Colors.red,
+                                      hint: 'Search drop-off location',
+                                      value: map.drop?.address,
+                                      onTap: () => _openSearch(
+                                        context,
+                                        title: 'Search drop-off',
+                                        isPickup: false,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    if (map.pickup != null &&
+                                        map.drop != null)
+                                      Text(
+                                        map.routeLoading
+                                            ? 'Calculating route…'
+                                            : '${(map.distanceMeters / 1000).toStringAsFixed(1)} km · '
+                                                '${(map.durationSeconds / 60).ceil()} min',
+                                        style: TextStyle(
+                                            color: Colors.grey.shade400),
+                                      ),
+                                  ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 12),
                             PrimaryButton(
                               label: 'Choose vehicle & price',
                               onPressed: () =>
@@ -1101,6 +1137,55 @@ class _ActiveRideCard extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({
+    required this.icon,
+    required this.iconColor,
+    required this.hint,
+    required this.onTap,
+    this.value,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String hint;
+  final String? value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 12, color: iconColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value ?? hint,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: value != null ? Colors.white : Colors.grey.shade500,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            if (value != null)
+              const Icon(Icons.check_circle, size: 18, color: AppTheme.accent),
+          ],
+        ),
+      ),
     );
   }
 }

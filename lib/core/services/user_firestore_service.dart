@@ -35,6 +35,7 @@ class UserFirestoreService {
     return AppUser(
       id: uid,
       phone: phone,
+      email: data['email'] as String?,
       name: data['name'] as String?,
       role: role,
       isApproved: approved,
@@ -56,11 +57,34 @@ class UserFirestoreService {
       final isApproved = role != UserRole.driver;
       await ref.set({
         'phone': phone,
+        'email': firebaseUser.email,
         'name': displayName ?? firebaseUser.displayName,
         'role': role.firestoreValue,
         'isApproved': isApproved,
         'createdAt': FieldValue.serverTimestamp(),
       });
+    } else {
+      // Patch any missing fields for existing users (e.g. prior incomplete signup).
+      final data = snap.data()!;
+      final updates = <String, dynamic>{};
+      if ((data['phone'] == null || (data['phone'] as String).isEmpty) &&
+          phone.isNotEmpty) {
+        updates['phone'] = phone;
+      }
+      if ((data['email'] == null || (data['email'] as String).isEmpty) &&
+          firebaseUser.email != null) {
+        updates['email'] = firebaseUser.email;
+      }
+      final currentName = data['name'] as String?;
+      final newName = displayName ?? firebaseUser.displayName;
+      if ((currentName == null || currentName.isEmpty) &&
+          newName != null &&
+          newName.isNotEmpty) {
+        updates['name'] = newName;
+      }
+      if (updates.isNotEmpty) {
+        await ref.update(updates);
+      }
     }
     final u = await fetchUser(firebaseUser.uid);
     return u!;

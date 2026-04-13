@@ -56,7 +56,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+                    // Phone number display
+                    ListTile(
+                      leading: const Icon(Icons.phone, color: AppTheme.accent),
+                      title: Text(widget.phoneNumber),
+                      subtitle: Text(
+                        'Signed in as',
+                        style: TextStyle(color: Colors.grey.shade400),
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 16),
                     // Username/Name field
                     TextField(
                       controller: _nameCtrl,
@@ -128,7 +139,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       loading: auth.isBusy,
                       onPressed: auth.isBusy
                           ? null
-                          : () {
+                          : () async {
                               final name = _nameCtrl.text.trim();
                               if (name.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -141,9 +152,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 );
                                 return;
                               }
-                              auth.completeProfileAfterSignIn(
+                              await auth.completeProfileAfterSignIn(
                                 displayName: name,
                               );
+                              if (context.mounted &&
+                                  auth.errorMessage == null) {
+                                Navigator.of(context)
+                                    .popUntil((route) => route.isFirst);
+                              }
                             },
                     ),
                   ],
