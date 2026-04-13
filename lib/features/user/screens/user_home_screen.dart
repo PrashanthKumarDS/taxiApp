@@ -964,16 +964,22 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                               setModalState(() {});
                             },
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(12),
                               child: Row(
                                 children: [
-                                  Icon(
-                                    sel
-                                        ? Icons.radio_button_checked
-                                        : Icons.radio_button_off,
-                                    color: AppTheme.accent,
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.asset(
+                                      t.imagePath,
+                                      width: 100,
+                                      height: 70,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.directions_car,
+                                              size: 40, color: Colors.grey),
+                                    ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 14),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -982,12 +988,13 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                                         Text(
                                           t.label,
                                           style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
+                                            fontWeight: FontWeight.w700,
                                             fontSize: 16,
                                           ),
                                         ),
+                                        const SizedBox(height: 2),
                                         Text(
-                                          t.description,
+                                          '${t.description} · ${t.seats} seater',
                                           style: TextStyle(
                                             color: Colors.grey.shade500,
                                             fontSize: 13,
@@ -996,6 +1003,9 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                                       ],
                                     ),
                                   ),
+                                  if (sel)
+                                    const Icon(Icons.check_circle,
+                                        color: AppTheme.accent, size: 22),
                                 ],
                               ),
                             ),
