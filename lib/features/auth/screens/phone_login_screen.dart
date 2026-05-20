@@ -1,4 +1,6 @@
+import 'package:dotlottie_loader/dotlottie_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:taxi_app/core/constants/feature_flags.dart';
 import 'package:taxi_app/core/services/user_firestore_service.dart';
@@ -62,37 +64,30 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 32),
-                  Text(
-                    'MyTown Cabs',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Preview the rider experience — phone OTP can be wired up later.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                  ),
-                  const SizedBox(height: 28),
-                  PrimaryButton(
-                    label: 'Continue as rider (preview)',
-                    loading: false,
-                    onPressed: () => auth.startUserPreview(),
-                  ),
-                  const SizedBox(height: 20),
                   if (FeatureFlags.phoneOtpEnabled) ...[
-                    const Divider(),
+                    Expanded(
+                      child: DotLottieLoader.fromAsset(
+                        _otpStep
+                            ? 'assets/animations/otp_verification.lottie'
+                            : 'assets/animations/login.lottie',
+                        frameBuilder: (ctx, dotlottie) {
+                          if (dotlottie != null) {
+                            return Lottie.memory(
+                              dotlottie.animations.values.single,
+                              fit: BoxFit.contain,
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       _otpStep
                           ? 'Enter the code we sent'
                           : 'Sign in with phone',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade400),
+                      style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.6)),
                     ),
                     const SizedBox(height: 24),
                     if (!_otpStep) ...[
@@ -131,15 +126,21 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         ),
                       ),
                     ],
-                    const Spacer(),
+                    const SizedBox(height: 24),
                     if (!_otpStep)
                       PrimaryButton(
                         label: 'Send code',
                         loading: auth.isBusy,
                         onPressed: () async {
                           final p = _normalizePhone(_phoneCtrl.text);
-                          if (p.length < 13)
-                            return; // +91 + 10 digits = 13 characters
+                          if (p.length < 13) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter a valid 10-digit phone number'),
+                              ),
+                            );
+                            return;
+                          }
                           await auth.requestOtp(p);
                           if (!context.mounted) return;
                           if (auth.verificationId != null) {
@@ -187,6 +188,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         onPressed: auth.isBusy
                             ? null
                             : () {
+                                _otpCtrl.clear();
+                                auth.clearError();
                                 setState(() => _otpStep = false);
                               },
                         child: const Text('Change number'),
@@ -198,7 +201,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       'Phone OTP is turned off in code (see lib/core/constants/feature_flags.dart).',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppTheme.accent.withValues(alpha: 0.5),
                         fontSize: 12,
                       ),
                     ),

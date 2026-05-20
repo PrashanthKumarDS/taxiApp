@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
-import 'package:taxi_app/shared/widgets/role_router.dart';
+import 'package:taxi_app/features/auth/screens/splash_screen.dart';
 
 class TaxiApp extends StatelessWidget {
   const TaxiApp({super.key});
@@ -10,8 +10,8 @@ class TaxiApp extends StatelessWidget {
     return MaterialApp(
       title: 'MyTown Cabs',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
-      home: const RoleRouter(),
+      theme: AppTheme.light(),
+      home: const SplashScreen(),
     );
   }
 }

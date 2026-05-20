@@ -1,9 +1,12 @@
+import 'package:dotlottie_loader/dotlottie_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:lottie/lottie.dart' hide Marker;
 import 'package:provider/provider.dart';
 import 'package:taxi_app/core/constants/feature_flags.dart';
 import 'package:taxi_app/core/services/geocoding_service.dart';
+import 'package:taxi_app/core/services/location_service.dart';
 import 'package:taxi_app/core/services/user_firestore_service.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
 import 'package:taxi_app/core/utils/ride_status.dart';
@@ -20,6 +23,14 @@ import 'package:taxi_app/providers/ride_provider.dart';
 import 'package:taxi_app/providers/vehicle_provider.dart';
 import 'package:taxi_app/shared/widgets/primary_button.dart';
 
+String _formatDuration(int seconds) {
+  final mins = (seconds / 60).ceil();
+  if (mins < 60) return '$mins min';
+  final h = mins ~/ 60;
+  final m = mins % 60;
+  return m == 0 ? '${h}h' : '${h}h ${m}m';
+}
+
 class UserHomeScreen extends StatefulWidget {
   const UserHomeScreen({super.key});
 
@@ -28,16 +39,109 @@ class UserHomeScreen extends StatefulWidget {
 }
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
+  bool _permissionGranted = false;
+  bool _checking = true;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MapProvider>().refreshMyLocation();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPermission());
+  }
+
+  Future<void> _checkPermission() async {
+    final location = context.read<LocationService>();
+    final granted = await location.ensurePermission();
+    if (!mounted) return;
+    setState(() {
+      _permissionGranted = granted;
+      _checking = false;
     });
+    if (granted) {
+      context.read<MapProvider>().refreshMyLocation();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_checking) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: SizedBox(
+            height: 120,
+            width: 120,
+            child: DotLottieLoader.fromAsset(
+              'assets/animations/car_loading.lottie',
+              frameBuilder: (ctx, dotlottie) {
+                if (dotlottie != null) {
+                  return Lottie.memory(
+                    dotlottie.animations.values.single,
+                    fit: BoxFit.contain,
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!_permissionGranted) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 180,
+                    width: 180,
+                    child: DotLottieLoader.fromAsset(
+                      'assets/animations/car_loading.lottie',
+                      frameBuilder: (ctx, dotlottie) {
+                        if (dotlottie != null) {
+                          return Lottie.memory(
+                            dotlottie.animations.values.single,
+                            fit: BoxFit.contain,
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Location Required',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'MyTown Cabs needs your location to find nearby drivers and calculate routes.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppTheme.accent.withValues(alpha: 0.6),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  PrimaryButton(
+                    label: 'Allow Location',
+                    onPressed: _checkPermission,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (FeatureFlags.googleMapsEnabled) {
       return const _UserHomeMapBody();
     }
@@ -239,8 +343,8 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    AppTheme.cardDark,
-                    Colors.black.withValues(alpha: 0.92),
+                    AppTheme.cardColor,
+                    AppTheme.accent.withValues(alpha: 0.08),
                   ],
                 ),
               ),
@@ -249,12 +353,12 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.edit_location_alt_outlined,
-                        size: 72, color: Colors.grey.shade600),
+                        size: 72, color: AppTheme.accent.withValues(alpha: 0.4)),
                     const SizedBox(height: 16),
                     Text(
                       'Where to?',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.grey.shade400,
+                            color: AppTheme.accent,
                           ),
                     ),
                     const SizedBox(height: 8),
@@ -263,7 +367,7 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
                       child: Text(
                         'Type place names like Udupi or Mangaluru, Karnataka — we look them up. Fine‑tune with coordinates if needed.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.6), fontSize: 13),
                       ),
                     ),
                   ],
@@ -277,7 +381,11 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
             right: 16,
             child: Row(
               children: [
-                IconButton.filledTonal(
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.accent,
+                  ),
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(
@@ -287,7 +395,11 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
                   icon: const Icon(Icons.history),
                 ),
                 const Spacer(),
-                IconButton.filledTonal(
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.accent,
+                  ),
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(
@@ -306,13 +418,13 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
             builder: (context, scrollCtrl) {
               return Container(
                 decoration: const BoxDecoration(
-                  color: AppTheme.cardDark,
+                  color: AppTheme.cardColor,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   boxShadow: [
                     BoxShadow(
                       blurRadius: 24,
                       offset: Offset(0, -4),
-                      color: Colors.black54,
+                      color: Color(0x1A2D3B96),
                     ),
                   ],
                 ),
@@ -325,7 +437,7 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade700,
+                          color: AppTheme.accent,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -395,7 +507,7 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
                               title: Text(
                                 'Latitude & longitude',
                                 style: TextStyle(
-                                  color: Colors.grey.shade400,
+                                  color: AppTheme.accent.withValues(alpha: 0.5),
                                   fontSize: 14,
                                 ),
                               ),
@@ -487,7 +599,7 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
                               title: Text(
                                 'Latitude & longitude',
                                 style: TextStyle(
-                                  color: Colors.grey.shade400,
+                                  color: AppTheme.accent.withValues(alpha: 0.5),
                                   fontSize: 14,
                                 ),
                               ),
@@ -545,8 +657,8 @@ class _UserHomeManualBodyState extends State<_UserHomeManualBody> {
                                   map.routeLoading
                                       ? 'Calculating route…'
                                       : 'Distance ${(map.distanceMeters / 1000).toStringAsFixed(1)} km · '
-                                          '${(map.durationSeconds / 60).ceil()} min',
-                                  style: TextStyle(color: Colors.grey.shade400),
+                                          '${_formatDuration(map.durationSeconds)}',
+                                  style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5)),
                                 );
                               },
                             ),
@@ -582,6 +694,23 @@ class _UserHomeMapBody extends StatefulWidget {
 
 class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
   GoogleMapController? _mapCtrl;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _goToCurrentLocation());
+  }
+
+  Future<void> _goToCurrentLocation() async {
+    final map = context.read<MapProvider>();
+    await map.refreshMyLocation();
+    if (!mounted) return;
+    final ll = map.currentLatLng;
+    if (ll != null) {
+      await _mapCtrl?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(ll.latitude, ll.longitude), 15),
+      );
+    }
+  }
 
   Future<void> _animateTo(LatLng t) async {
     await _mapCtrl?.animateCamera(
@@ -675,7 +804,7 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
                 builder: (context, map, _) {
                   final target = map.currentLatLng ??
                       map.pickup?.position ??
-                      const GeoLatLng(37.7749, -122.4194);
+                      const GeoLatLng(13.3409, 74.7421);
                   final driverId = activeRide?.driverId;
 
                   Widget mapChild = TaxiGoogleMap(
@@ -749,7 +878,11 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
             right: 16,
             child: Row(
               children: [
-                IconButton.filledTonal(
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.accent,
+                  ),
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(
@@ -759,7 +892,11 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
                   icon: const Icon(Icons.history),
                 ),
                 const Spacer(),
-                IconButton.filledTonal(
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.accent,
+                  ),
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(
@@ -797,13 +934,13 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
             builder: (context, scrollCtrl) {
               return Container(
                 decoration: const BoxDecoration(
-                  color: AppTheme.cardDark,
+                  color: AppTheme.cardColor,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   boxShadow: [
                     BoxShadow(
                       blurRadius: 24,
                       offset: Offset(0, -4),
-                      color: Colors.black54,
+                      color: Color(0x1A2D3B96),
                     ),
                   ],
                 ),
@@ -816,7 +953,7 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade700,
+                          color: AppTheme.accent,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -876,9 +1013,9 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
                                         map.routeLoading
                                             ? 'Calculating route…'
                                             : '${(map.distanceMeters / 1000).toStringAsFixed(1)} km · '
-                                                '${(map.durationSeconds / 60).ceil()} min',
+                                                '${_formatDuration(map.durationSeconds)}',
                                         style: TextStyle(
-                                            color: Colors.grey.shade400),
+                                            color: AppTheme.accent.withValues(alpha: 0.5)),
                                       ),
                                   ],
                                 );
@@ -955,7 +1092,7 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                         child: Material(
                           color: sel
                               ? AppTheme.accent.withValues(alpha: 0.15)
-                              : AppTheme.cardDark,
+                              : AppTheme.cardColor,
                           borderRadius: BorderRadius.circular(14),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
@@ -975,8 +1112,8 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                                       height: 70,
                                       fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) =>
-                                          const Icon(Icons.directions_car,
-                                              size: 40, color: Colors.grey),
+                                          Icon(Icons.directions_car,
+                                              size: 40, color: AppTheme.accent.withValues(alpha: 0.4)),
                                     ),
                                   ),
                                   const SizedBox(width: 14),
@@ -996,7 +1133,7 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                                         Text(
                                           '${t.description} · ${t.seats} seater',
                                           style: TextStyle(
-                                            color: Colors.grey.shade500,
+                                            color: AppTheme.accent.withValues(alpha: 0.5),
                                             fontSize: 13,
                                           ),
                                         ),
@@ -1045,6 +1182,67 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                                 return;
                               }
                               Navigator.pop(ctx);
+                              if (!ctx.mounted) return;
+                              final code = ride.lastSecretCode ?? '----';
+                              showDialog<void>(
+                                context: ctx,
+                                builder: (c) => AlertDialog(
+                                  title: const Text('Ride Requested!'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text(
+                                        'Our driver will call you shortly for more details.',
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.accent.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Text(
+                                              'Your Secret Code',
+                                              style: TextStyle(
+                                                color: AppTheme.accent.withValues(alpha: 0.5),
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              code,
+                                              style: const TextStyle(
+                                                fontSize: 32,
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: 6,
+                                                color: AppTheme.accent,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Share this code with the driver to verify your ride. Thank you!',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: AppTheme.accent.withValues(alpha: 0.5),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(c),
+                                      child: const Text('OK'),
+                                    ),
+                                  ],
+                                ),
+                              );
                             },
                     ),
                   ],
@@ -1090,43 +1288,59 @@ class _ActiveRideCard extends StatelessWidget {
         break;
     }
 
+    final secretCode = ride.otp;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(title, style: Theme.of(context).textTheme.titleMedium),
-        if (ride.otp != null &&
-            (st == RideStatus.accepted || st == RideStatus.arrived)) ...[
+        if (secretCode != null &&
+            (st == RideStatus.searching ||
+             st == RideStatus.accepted ||
+             st == RideStatus.arrived)) ...[
+          const SizedBox(height: 8),
+          if (st == RideStatus.searching)
+            Text(
+              'Our driver will call you shortly.',
+              style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5), fontSize: 13),
+            ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.black26,
+              color: AppTheme.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                const Icon(Icons.pin_outlined, color: AppTheme.accent),
+                const Icon(Icons.lock_outline, color: AppTheme.accent),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Show OTP to driver',
+                      'Your Secret Code',
                       style:
-                          TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                          TextStyle(color: AppTheme.accent.withValues(alpha: 0.5), fontSize: 12),
                     ),
                     Text(
-                      ride.otp!,
+                      secretCode,
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 4,
+                        color: AppTheme.accent,
                       ),
                     ),
                   ],
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Share this code with the driver to verify your ride.',
+            style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5), fontSize: 12),
           ),
         ],
         if (st == RideStatus.searching) ...[
@@ -1173,8 +1387,9 @@ class _SearchField extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -1186,7 +1401,7 @@ class _SearchField extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: value != null ? Colors.white : Colors.grey.shade500,
+                  color: value != null ? AppTheme.accent : AppTheme.accent.withValues(alpha: 0.5),
                   fontSize: 15,
                 ),
               ),

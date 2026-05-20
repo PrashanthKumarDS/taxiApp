@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
+import 'package:taxi_app/features/user/screens/terms_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AboutUsScreen extends StatelessWidget {
   const AboutUsScreen({super.key});
@@ -12,7 +14,10 @@ class AboutUsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 16),
-          const Icon(Icons.local_taxi, size: 64, color: AppTheme.accent),
+          Image.asset(
+            'assets/images/logo.png',
+            height: 100,
+          ),
           const SizedBox(height: 16),
           Text(
             'MyTown Cabs',
@@ -25,7 +30,7 @@ class AboutUsScreen extends StatelessWidget {
           Text(
             'Version 1.0.0',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+            style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5), fontSize: 14),
           ),
           const SizedBox(height: 24),
           Text(
@@ -34,7 +39,7 @@ class AboutUsScreen extends StatelessWidget {
             'and convenient trips across town.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.grey.shade300,
+              color: AppTheme.accent.withValues(alpha: 0.7),
               fontSize: 15,
               height: 1.5,
             ),
@@ -53,13 +58,52 @@ class AboutUsScreen extends StatelessWidget {
           _InfoTile(
             icon: Icons.support_agent,
             title: 'Support',
-            subtitle: 'Reach us at support@mytowncabs.com',
+            subtitle: 'Call us at +91 74063 29777',
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TermsScreen()),
+                ),
+                child: Text(
+                  'Terms of Service',
+                  style: TextStyle(
+                    color: AppTheme.accent,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text('·', style: TextStyle(color: AppTheme.accent, fontSize: 16)),
+              ),
+              GestureDetector(
+                onTap: () => launchUrl(
+                  Uri.parse('https://doc-hosting.flycricket.io/my-town-cabs-privacy-policy/d81cc37c-1cc0-486d-9e31-45fbd280c891/privacy'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                child: Text(
+                  'Privacy Policy',
+                  style: TextStyle(
+                    color: AppTheme.accent,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.underline,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
           Text(
             'Made with love in India',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.6), fontSize: 13),
           ),
         ],
       ),
@@ -104,7 +148,7 @@ class _InfoTile extends StatelessWidget {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Colors.grey.shade400,
+                    color: AppTheme.accent.withValues(alpha: 0.5),
                     fontSize: 13,
                   ),
                 ),

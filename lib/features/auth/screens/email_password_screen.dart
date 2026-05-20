@@ -60,7 +60,7 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                           : 'Sign in with your email and password',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppTheme.accent.withValues(alpha: 0.6),
                         fontSize: 14,
                       ),
                     ),
@@ -70,7 +70,7 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                       Text(
                         'I am signing up as',
                         style: TextStyle(
-                          color: Colors.grey.shade700,
+                          color: AppTheme.accent,
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
                         ),
@@ -222,7 +222,7 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                           _isSignUp
                               ? 'Already have an account? '
                               : 'Don\'t have an account? ',
-                          style: TextStyle(color: Colors.grey.shade600),
+                          style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.6)),
                         ),
                         TextButton(
                           onPressed: auth.isBusy

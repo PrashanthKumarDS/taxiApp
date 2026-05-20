@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:taxi_app/core/services/ride_firestore_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:taxi_app/core/utils/ride_status.dart';
 import 'package:taxi_app/models/app_user.dart';
 import 'package:taxi_app/models/lat_lng_address.dart';
@@ -44,6 +46,9 @@ class RideProvider extends ChangeNotifier {
     });
   }
 
+  String? _lastSecretCode;
+  String? get lastSecretCode => _lastSecretCode;
+
   Future<void> createRideRequest({
     required LatLngAddress pickup,
     required LatLngAddress drop,
@@ -59,12 +64,15 @@ class RideProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
     try {
+      _lastSecretCode = (1000 + Random.secure().nextInt(9000)).toString();
+      final code = _lastSecretCode!;
       final draft = RideModel(
         rideId: '',
         userId: uid,
         pickup: pickup,
         drop: drop,
         status: RideStatus.searching,
+        otp: code,
         estimatedPrice: estimatedPrice,
         vehicleType: vehicle,
         distanceMeters: distanceMeters,
@@ -74,6 +82,7 @@ class RideProvider extends ChangeNotifier {
       final id = await _rides.createRide(draft);
       _watchedRideId = id;
       _attachRideListener();
+      await _sendWhatsAppNotification(draft, code);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -104,6 +113,46 @@ class RideProvider extends ChangeNotifier {
     _activeRide = null;
     _watchedRideId = null;
     notifyListeners();
+  }
+
+  static const _whatsappNumber = '917406329777';
+
+  Future<void> _sendWhatsAppNotification(RideModel ride, String otp) async {
+    final pickup = ride.pickup.address ?? '${ride.pickup.latitude}, ${ride.pickup.longitude}';
+    final drop = ride.drop.address ?? '${ride.drop.latitude}, ${ride.drop.longitude}';
+    final dist = ride.distanceMeters != null
+        ? '${(ride.distanceMeters! / 1000).toStringAsFixed(1)} km'
+        : 'N/A';
+    final price = ride.estimatedPrice.toStringAsFixed(0);
+    final vehicle = '${ride.vehicleType.label} (${ride.vehicleType.seats} seater)';
+    final userName = _user?.name ?? 'A user';
+    final userPhone = _user?.phone ?? '';
+
+    final pickupMap = 'https://www.google.com/maps?q=${ride.pickup.latitude},${ride.pickup.longitude}';
+    final dropMap = 'https://www.google.com/maps?q=${ride.drop.latitude},${ride.drop.longitude}';
+
+    final message = '🚖 Hello MyTown Drivers!\n\n'
+        'A customer has requested a ride. Please give them a call and confirm the details.\n\n'
+        '👤 Name: $userName\n'
+        '📞 Call: $userPhone\n\n'
+        '📍 Pickup: $pickup\n'
+        '🗺️ $pickupMap\n\n'
+        '📍 Drop: $drop\n'
+        '🗺️ $dropMap\n\n'
+        '🚗 Vehicle: $vehicle\n'
+        '📏 Distance: $dist\n'
+        '💰 Est. Fare: ₹$price\n'
+        '🔐 Verify Code: $otp\n\n'
+        'Please verify this code with the customer before starting the trip.';
+
+    final uri = Uri.parse(
+      'https://wa.me/$_whatsappNumber?text=${Uri.encodeComponent(message)}',
+    );
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('WhatsApp launch failed: $e');
+    }
   }
 
   Future<void> markArrived(String rideId) => _rides.setArrived(rideId);

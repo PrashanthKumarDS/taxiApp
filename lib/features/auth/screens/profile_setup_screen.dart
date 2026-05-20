@@ -1,7 +1,9 @@
+import 'package:dotlottie_loader/dotlottie_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
-import 'package:taxi_app/core/utils/user_role.dart';
+// import 'package:taxi_app/core/utils/user_role.dart';
 import 'package:taxi_app/providers/auth_provider.dart';
 import 'package:taxi_app/shared/widgets/primary_button.dart';
 
@@ -40,6 +42,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    SizedBox(
+                      height: 180,
+                      child: DotLottieLoader.fromAsset(
+                        'assets/animations/profile_creation.lottie',
+                        frameBuilder: (ctx, dotlottie) {
+                          if (dotlottie != null) {
+                            return Lottie.memory(
+                              dotlottie.animations.values.single,
+                              fit: BoxFit.contain,
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Complete Your Profile',
@@ -52,7 +69,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       'Enter your details to get started',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppTheme.accent.withValues(alpha: 0.6),
                         fontSize: 14,
                       ),
                     ),
@@ -63,7 +80,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       title: Text(widget.phoneNumber),
                       subtitle: Text(
                         'Signed in as',
-                        style: TextStyle(color: Colors.grey.shade400),
+                        style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5)),
                       ),
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -81,38 +98,38 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    // Role selection
-                    Text(
-                      'What do you want to do?',
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('Book Rides'),
-                          selected: auth.signupRole == UserRole.user,
-                          onSelected: auth.isBusy
-                              ? null
-                              : (_) => auth.setSignupRole(UserRole.user),
-                          selectedColor: AppTheme.accent.withValues(alpha: 0.3),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Drive'),
-                          selected: auth.signupRole == UserRole.driver,
-                          onSelected: auth.isBusy
-                              ? null
-                              : (_) => auth.setSignupRole(UserRole.driver),
-                          selectedColor: AppTheme.accent.withValues(alpha: 0.3),
-                        ),
-                      ],
-                    ),
+                    // // Role selection
+                    // const SizedBox(height: 16),
+                    // Text(
+                    //   'What do you want to do?',
+                    //   style: TextStyle(
+                    //     color: Colors.grey.shade700,
+                    //     fontWeight: FontWeight.w500,
+                    //     fontSize: 14,
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 8),
+                    // Wrap(
+                    //   spacing: 8,
+                    //   children: [
+                    //     ChoiceChip(
+                    //       label: const Text('Book Rides'),
+                    //       selected: auth.signupRole == UserRole.user,
+                    //       onSelected: auth.isBusy
+                    //           ? null
+                    //           : (_) => auth.setSignupRole(UserRole.user),
+                    //       selectedColor: AppTheme.accent.withValues(alpha: 0.3),
+                    //     ),
+                    //     ChoiceChip(
+                    //       label: const Text('Drive'),
+                    //       selected: auth.signupRole == UserRole.driver,
+                    //       onSelected: auth.isBusy
+                    //           ? null
+                    //           : (_) => auth.setSignupRole(UserRole.driver),
+                    //       selectedColor: AppTheme.accent.withValues(alpha: 0.3),
+                    //     ),
+                    //   ],
+                    // ),
                     // Error message
                     if (auth.errorMessage != null) ...[
                       const SizedBox(height: 16),

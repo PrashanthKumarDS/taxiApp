@@ -14,7 +14,7 @@ import 'package:taxi_app/core/services/user_firestore_service.dart';
 import 'package:taxi_app/core/firebase/firebase_bootstrap.dart';
 import 'package:taxi_app/providers/admin_provider.dart';
 import 'package:taxi_app/providers/auth_provider.dart';
-import 'package:taxi_app/providers/driver_provider.dart';
+// import 'package:taxi_app/providers/driver_provider.dart';
 import 'package:taxi_app/providers/map_provider.dart';
 import 'package:taxi_app/providers/ride_provider.dart';
 import 'package:taxi_app/providers/vehicle_provider.dart';
@@ -57,23 +57,23 @@ Future<void> main() async {
             return p;
           },
         ),
-        ChangeNotifierProxyProvider<AuthProvider, DriverProvider>(
-          create: (c) => DriverProvider(
-            c.read<UserFirestoreService>(),
-            c.read<RideFirestoreService>(),
-            c.read<LocationService>(),
-          ),
-          update: (context, auth, prev) {
-            final p = prev ??
-                DriverProvider(
-                  context.read<UserFirestoreService>(),
-                  context.read<RideFirestoreService>(),
-                  context.read<LocationService>(),
-                );
-            p.bindUser(auth.appUser);
-            return p;
-          },
-        ),
+        // ChangeNotifierProxyProvider<AuthProvider, DriverProvider>(
+        //   create: (c) => DriverProvider(
+        //     c.read<UserFirestoreService>(),
+        //     c.read<RideFirestoreService>(),
+        //     c.read<LocationService>(),
+        //   ),
+        //   update: (context, auth, prev) {
+        //     final p = prev ??
+        //         DriverProvider(
+        //           context.read<UserFirestoreService>(),
+        //           context.read<RideFirestoreService>(),
+        //           context.read<LocationService>(),
+        //         );
+        //     p.bindUser(auth.appUser);
+        //     return p;
+        //   },
+        // ),
         ChangeNotifierProvider(
           create: (c) => AdminProvider(c.read<UserFirestoreService>()),
         ),

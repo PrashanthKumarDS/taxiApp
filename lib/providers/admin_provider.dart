@@ -15,27 +15,26 @@ class AdminProvider extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   List<AppUser> _usersList = [];
-  List<AppUser> _driversList = [];
+  // List<AppUser> _driversList = [];
   List<RideModel> _ridesList = [];
   List<RideModel> _liveRides = [];
   bool _loading = true;
   String? _error;
 
   List<AppUser> get usersList => List.unmodifiable(_usersList);
-  List<AppUser> get driversList => List.unmodifiable(_driversList);
+  // List<AppUser> get driversList => List.unmodifiable(_driversList);
   List<RideModel> get ridesList => List.unmodifiable(_ridesList);
   List<RideModel> get liveRides => List.unmodifiable(_liveRides);
   bool get loading => _loading;
   String? get error => _error;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _uSub;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _dSub;
+  // StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _dSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _rSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _liveSub;
 
   void startListening() {
     _uSub?.cancel();
-    _dSub?.cancel();
     _rSub?.cancel();
     _liveSub?.cancel();
 
@@ -46,12 +45,12 @@ class AdminProvider extends ChangeNotifier {
         .snapshots()
         .listen(_onUsers, onError: _onErr);
 
-    _dSub = _db
-        .collection(FirestorePaths.users)
-        .where('role', isEqualTo: UserRole.driver.firestoreValue)
-        .limit(100)
-        .snapshots()
-        .listen(_onDrivers, onError: _onErr);
+    // _dSub = _db
+    //     .collection(FirestorePaths.users)
+    //     .where('role', isEqualTo: UserRole.driver.firestoreValue)
+    //     .limit(100)
+    //     .snapshots()
+    //     .listen(_onDrivers, onError: _onErr);
 
     _rSub = _db
         .collection(FirestorePaths.rides)
@@ -84,13 +83,13 @@ class AdminProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _onDrivers(QuerySnapshot<Map<String, dynamic>> snap) {
-    _driversList = snap.docs
-        .map((d) => _usersMap(d.id, d.data()))
-        .whereType<AppUser>()
-        .toList();
-    notifyListeners();
-  }
+  // void _onDrivers(QuerySnapshot<Map<String, dynamic>> snap) {
+  //   _driversList = snap.docs
+  //       .map((d) => _usersMap(d.id, d.data()))
+  //       .whereType<AppUser>()
+  //       .toList();
+  //   notifyListeners();
+  // }
 
   AppUser? _usersMap(String id, Map<String, dynamic> data) {
     try {
@@ -122,17 +121,17 @@ class AdminProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setDriverApproved(String uid, bool approved) async {
-    await _users.setApproved(uid, approved);
-  }
+  // Future<void> setDriverApproved(String uid, bool approved) async {
+  //   await _users.setApproved(uid, approved);
+  // }
 
   void stopListening() {
     _uSub?.cancel();
-    _dSub?.cancel();
+    // _dSub?.cancel();
     _rSub?.cancel();
     _liveSub?.cancel();
     _uSub = null;
-    _dSub = null;
+    // _dSub = null;
     _rSub = null;
     _liveSub = null;
   }

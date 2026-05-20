@@ -27,6 +27,12 @@ val mapsKeyFromFirebaseJson = readGoogleServicesApiKey(googleServicesJson)
 val googleMapsApiKeyAndroid =
     mapsKeyFromProperties ?: mapsKeyFromFirebaseJson ?: "YOUR_ANDROID_MAPS_KEY"
 
+val keystoreProperties = Properties()
+val keystorePropsFile = rootProject.file("key.properties")
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.inputStream().use { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.mytowncabs.app"
     compileSdk = flutter.compileSdkVersion
@@ -50,11 +56,22 @@ android {
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKeyAndroid
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            storeFile = (keystoreProperties["storeFile"] as String?)?.let { file(it) }
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePropsFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

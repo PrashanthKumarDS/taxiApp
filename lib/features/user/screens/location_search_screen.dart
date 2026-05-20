@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:dotlottie_loader/dotlottie_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:taxi_app/core/services/places_service.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
@@ -157,7 +159,21 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
             ),
           ),
           if (_loading || _detailsLoading)
-            const LinearProgressIndicator(minHeight: 2),
+            SizedBox(
+              height: 60,
+              child: DotLottieLoader.fromAsset(
+                'assets/animations/car_loading.lottie',
+                frameBuilder: (ctx, dotlottie) {
+                  if (dotlottie != null) {
+                    return Lottie.memory(
+                      dotlottie.animations.values.single,
+                      fit: BoxFit.contain,
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
           // Current location option
           ListTile(
             leading: CircleAvatar(
@@ -170,12 +186,39 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
           const Divider(height: 1),
           // Search results
           Expanded(
-            child: _predictions.isEmpty && _controller.text.length >= 2
+            child: _predictions.isEmpty
                 ? Center(
-                    child: Text(
-                      _loading ? '' : 'No results found',
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
+                    child: _controller.text.length >= 2
+                        ? Text(
+                            _loading ? '' : 'No results found',
+                            style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5)),
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                height: 160,
+                                width: 160,
+                                child: DotLottieLoader.fromAsset(
+                                  'assets/animations/car_loading.lottie',
+                                  frameBuilder: (ctx, dotlottie) {
+                                    if (dotlottie != null) {
+                                      return Lottie.memory(
+                                        dotlottie.animations.values.single,
+                                        fit: BoxFit.contain,
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Search for a place to get started',
+                                style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5)),
+                              ),
+                            ],
+                          ),
                   )
                 : ListView.separated(
                     itemCount: _predictions.length,
@@ -194,7 +237,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                                 p.secondaryText!,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: TextStyle(color: Colors.grey.shade500),
+                                style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5)),
                               )
                             : null,
                         enabled: !_detailsLoading,

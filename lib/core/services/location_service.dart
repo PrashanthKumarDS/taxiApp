@@ -12,11 +12,10 @@ class LocationService {
       await openAppSettings();
       return false;
     }
+    if (!status.isGranted) return false;
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return false;
-    }
-    return status.isGranted;
+    if (!serviceEnabled) return false;
+    return true;
   }
 
   Future<GeoLatLng?> getCurrentLatLng() async {

@@ -41,6 +41,7 @@ class RideModel {
         'pickup': pickup.toMap(),
         'drop': drop.toMap(),
         'status': status.firestoreValue,
+        if (otp != null) 'otp': otp,
         'estimatedPrice': estimatedPrice,
         'vehicleType': vehicleType.firestoreValue,
         if (distanceMeters != null) 'distanceMeters': distanceMeters,

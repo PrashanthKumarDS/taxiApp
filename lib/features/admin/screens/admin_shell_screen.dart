@@ -41,7 +41,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
         index: _index,
         children: const [
           _UsersTab(),
-          _DriversTab(),
+          // _DriversTab(),
           _RidesTab(),
           AdminLiveMapScreen(),
         ],
@@ -51,7 +51,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.people_outline), label: 'Users'),
-          NavigationDestination(icon: Icon(Icons.local_taxi_outlined), label: 'Drivers'),
+          // NavigationDestination(icon: Icon(Icons.local_taxi_outlined), label: 'Drivers'),
           NavigationDestination(icon: Icon(Icons.route_outlined), label: 'Rides'),
           NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Live'),
         ],
@@ -86,41 +86,41 @@ class _UsersTab extends StatelessWidget {
   }
 }
 
-class _DriversTab extends StatelessWidget {
-  const _DriversTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AdminProvider>(
-      builder: (context, a, _) {
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: a.driversList.length,
-          itemBuilder: (context, i) {
-            final d = a.driversList[i];
-            return Card(
-              child: ListTile(
-                title: Text(d.name ?? d.phone),
-                subtitle: Text(
-                  d.isApproved ? 'Approved' : 'Pending',
-                ),
-                trailing: d.isApproved
-                    ? TextButton(
-                        onPressed: () => a.setDriverApproved(d.id, false),
-                        child: const Text('Revoke'),
-                      )
-                    : FilledButton(
-                        onPressed: () => a.setDriverApproved(d.id, true),
-                        child: const Text('Approve'),
-                      ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
+// class _DriversTab extends StatelessWidget {
+//   const _DriversTab();
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Consumer<AdminProvider>(
+//       builder: (context, a, _) {
+//         return ListView.builder(
+//           padding: const EdgeInsets.all(16),
+//           itemCount: a.driversList.length,
+//           itemBuilder: (context, i) {
+//             final d = a.driversList[i];
+//             return Card(
+//               child: ListTile(
+//                 title: Text(d.name ?? d.phone),
+//                 subtitle: Text(
+//                   d.isApproved ? 'Approved' : 'Pending',
+//                 ),
+//                 trailing: d.isApproved
+//                     ? TextButton(
+//                         onPressed: () => a.setDriverApproved(d.id, false),
+//                         child: const Text('Revoke'),
+//                       )
+//                     : FilledButton(
+//                         onPressed: () => a.setDriverApproved(d.id, true),
+//                         child: const Text('Approve'),
+//                       ),
+//               ),
+//             );
+//           },
+//         );
+//       },
+//     );
+//   }
+// }
 
 class _RidesTab extends StatelessWidget {
   const _RidesTab();

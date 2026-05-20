@@ -163,8 +163,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      AppTheme.cardDark,
-                      Colors.black.withValues(alpha: 0.9),
+                      AppTheme.cardColor,
+                      AppTheme.accent.withValues(alpha: 0.08),
                     ],
                   ),
                 ),
@@ -179,20 +179,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.local_taxi_outlined,
-                                  size: 64, color: Colors.grey.shade600),
+                                  size: 64, color: AppTheme.accent.withValues(alpha: 0.4)),
                               const SizedBox(height: 16),
                               Text(
                                 'Map view off',
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleMedium
-                                    ?.copyWith(color: Colors.grey.shade400),
+                                    ?.copyWith(color: AppTheme.accent),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Pickup and drop show as coordinates in ride cards below.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey.shade600),
+                                style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.6)),
                               ),
                             ],
                           );
@@ -257,7 +257,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             builder: (context, sc) {
               return Container(
                 decoration: const BoxDecoration(
-                  color: AppTheme.cardDark,
+                  color: AppTheme.cardColor,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 child: Consumer<DriverProvider>(
@@ -305,12 +305,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             Text(
                               'Pickup: ${ride.pickup.latitude.toStringAsFixed(5)}, ${ride.pickup.longitude.toStringAsFixed(5)}',
                               style: TextStyle(
-                                  color: Colors.grey.shade400, fontSize: 12),
+                                  color: AppTheme.accent.withValues(alpha: 0.5), fontSize: 12),
                             ),
                             Text(
                               'Drop: ${ride.drop.latitude.toStringAsFixed(5)}, ${ride.drop.longitude.toStringAsFixed(5)}',
                               style: TextStyle(
-                                  color: Colors.grey.shade400, fontSize: 12),
+                                  color: AppTheme.accent.withValues(alpha: 0.5), fontSize: 12),
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -376,7 +376,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           if (drv.offers.isEmpty)
                             Text(
                               'Waiting for rides…',
-                              style: TextStyle(color: Colors.grey.shade500),
+                              style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5)),
                             ),
                         ],
                       ],
@@ -408,7 +408,7 @@ class _CoordRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: AppTheme.accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

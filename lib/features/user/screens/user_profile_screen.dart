@@ -1,7 +1,8 @@
+import 'package:dotlottie_loader/dotlottie_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
-import 'package:taxi_app/core/utils/user_role.dart';
 import 'package:taxi_app/features/user/screens/about_us_screen.dart';
 import 'package:taxi_app/features/user/screens/user_history_screen.dart';
 import 'package:taxi_app/providers/auth_provider.dart';
@@ -16,98 +17,89 @@ class UserProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
-          if (auth.previewMode)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Material(
-                color: Colors.amber.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.info_outline, color: AppTheme.accent),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Preview mode: map and UI work locally. '
-                          'Firestore rides and history need phone sign-in when you enable it.',
-                          style: TextStyle(
-                            color: Colors.grey.shade300,
-                            fontSize: 13,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 180,
+            child: DotLottieLoader.fromAsset(
+              'assets/animations/walking.lottie',
+              frameBuilder: (ctx, dotlottie) {
+                if (dotlottie != null) {
+                  return Lottie.memory(
+                    dotlottie.animations.values.single,
+                    fit: BoxFit.contain,
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.cardColor,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: AppTheme.accent,
+                  child: Text(
+                    (u?.name ?? 'R').substring(0, 1).toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(u?.name ?? u?.email ?? 'Rider'),
-            subtitle: Text(
-              u?.phone != null && u!.phone.isNotEmpty
-                  ? u.phone
-                  : u?.email ?? '',
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('My Rides'),
-            subtitle: const Text('View your ride history'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const UserHistoryScreen(),
+                const SizedBox(height: 12),
+                Text(
+                  u?.name ?? u?.email ?? 'Rider',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              );
-            },
-          ),
-          if (u?.role == UserRole.user)
-            ListTile(
-              leading: const Icon(Icons.local_taxi_outlined),
-              title: const Text('Become a driver'),
-              subtitle: Text(
-                auth.previewMode
-                    ? 'Sign in with phone when OTP is enabled.'
-                    : 'Submit request — an admin must approve before you can go online.',
-              ),
-              onTap: auth.isBusy || auth.previewMode
-                  ? null
-                  : () async {
-                      await auth.registerAsDriver();
-                      if (!context.mounted) return;
-                      final msg =
-                          auth.errorMessage ??
-                          'Driver profile submitted. Wait for admin approval.';
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(msg)));
-                    },
-            ),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('About Us'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const AboutUsScreen(),
+                const SizedBox(height: 4),
+                Text(
+                  u?.phone != null && u!.phone.isNotEmpty
+                      ? u.phone
+                      : u?.email ?? '',
+                  style: TextStyle(
+                    color: AppTheme.accent.withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: Text(auth.previewMode ? 'Exit preview' : 'Sign out'),
+          const SizedBox(height: 20),
+          _ProfileTile(
+            icon: Icons.history,
+            title: 'My Rides',
+            subtitle: 'View your ride history',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const UserHistoryScreen()),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _ProfileTile(
+            icon: Icons.info_outline,
+            title: 'About Us',
+            subtitle: 'Learn more about MyTown Cabs',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AboutUsScreen()),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _ProfileTile(
+            icon: Icons.logout,
+            title: 'Sign Out',
+            subtitle: 'Log out of your account',
+            isDestructive: true,
             onTap: () async {
               await auth.logout();
               if (context.mounted) {
@@ -116,6 +108,88 @@ class UserProfileScreen extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProfileTile extends StatelessWidget {
+  const _ProfileTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDestructive
+                  ? Colors.red.withValues(alpha: 0.2)
+                  : AppTheme.accent.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: isDestructive
+                    ? Colors.red.withValues(alpha: 0.1)
+                    : AppTheme.accent.withValues(alpha: 0.1),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: isDestructive ? Colors.red : AppTheme.accent,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        color: isDestructive ? Colors.red : null,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: AppTheme.accent.withValues(alpha: 0.5),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: AppTheme.accent.withValues(alpha: 0.3),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

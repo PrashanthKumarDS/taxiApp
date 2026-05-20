@@ -25,20 +25,20 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   bool _busy = false;
   UserRole _signupRole = UserRole.user;
-  bool _previewMode = false;
-
   AppUser? get appUser => _appUser;
   User? get firebaseUser => _firebaseUser;
   String? get verificationId => _verificationId;
   String? get errorMessage => _errorMessage;
   bool get isBusy => _busy;
-  bool get previewMode => _previewMode;
 
-  /// Real Firebase session (not local preview).
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   bool get isAuthenticated =>
-      !_previewMode && _firebaseUser != null && _appUser != null;
+      _firebaseUser != null && _appUser != null;
 
-  /// Can open role home (Firebase user or preview rider).
   bool get hasSession => _appUser != null;
 
   UserRole get signupRole => _signupRole;
@@ -53,10 +53,6 @@ class AuthProvider extends ChangeNotifier {
     _firebaseUser = user;
     await _profileSub?.cancel();
     _profileSub = null;
-    if (_previewMode) {
-      notifyListeners();
-      return;
-    }
     // Only clear _appUser when the user actually changes (sign-out or different user).
     if (user?.uid != prevUid) {
       _appUser = null;
@@ -71,26 +67,10 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Rider UI without phone OTP (Firestore actions will fail until you sign in).
-  void startUserPreview() {
-    _previewMode = true;
-    _errorMessage = null;
-    _verificationId = null;
-    _appUser = const AppUser(
-      id: FeatureFlags.previewRiderId,
-      phone: '+0000000000',
-      name: 'Preview rider',
-      role: UserRole.user,
-      isApproved: true,
-    );
-    notifyListeners();
-  }
-
   /// Call after user enters their name to create/load Firestore profile.
   Future<void> completeProfileAfterSignIn({String? displayName}) async {
     final u = _firebaseUser;
     if (u == null) return;
-    _previewMode = false;
     _busy = true;
     _errorMessage = null;
     notifyListeners();
@@ -321,7 +301,6 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    _previewMode = false;
     await _profileSub?.cancel();
     _profileSub = null;
     await _auth.signOut();
@@ -331,27 +310,25 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> registerAsDriver() async {
-    final uid = _firebaseUser?.uid;
-    if (uid == null) {
-      _errorMessage = _previewMode
-          ? 'Sign in with phone to register as a driver.'
-          : null;
-      notifyListeners();
-      return;
-    }
-    _busy = true;
-    notifyListeners();
-    try {
-      await _users.updateRole(uid, UserRole.driver);
-      await _users.setApproved(uid, false);
-    } catch (e) {
-      _errorMessage = e.toString();
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
-  }
+  // Future<void> registerAsDriver() async {
+  //   final uid = _firebaseUser?.uid;
+  //   if (uid == null) {
+  //     _errorMessage = null;
+  //     notifyListeners();
+  //     return;
+  //   }
+  //   _busy = true;
+  //   notifyListeners();
+  //   try {
+  //     await _users.updateRole(uid, UserRole.driver);
+  //     await _users.setApproved(uid, false);
+  //   } catch (e) {
+  //     _errorMessage = e.toString();
+  //   } finally {
+  //     _busy = false;
+  //     notifyListeners();
+  //   }
+  // }
 
   @override
   void dispose() {

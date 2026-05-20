@@ -45,7 +45,7 @@ class _AdminLiveMapScreenState extends State<AdminLiveMapScreen> {
             return Center(
               child: Text(
                 'No active rides',
-                style: TextStyle(color: Colors.grey.shade500),
+                style: TextStyle(color: AppTheme.accent.withValues(alpha: 0.5)),
               ),
             );
           }
@@ -56,7 +56,7 @@ class _AdminLiveMapScreenState extends State<AdminLiveMapScreen> {
             itemBuilder: (context, i) {
               final r = rides[i];
               return Card(
-                color: AppTheme.cardDark,
+                color: AppTheme.cardColor,
                 child: ListTile(
                   title: Text('${r.status.name} · ${r.rideId}'),
                   subtitle: Text(
