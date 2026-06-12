@@ -12,7 +12,16 @@
           "package_name": "com.mytowncabs.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "606763588417-eu4j2eusjl7evaotmrbcqce3nm37kthr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mytowncabs.app",
+            "certificate_hash": "d9920fb217e8cbde10d54549503734c401a2b4c4"
+          }
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAW0HVBpHg-vijWzzujjqsb4o6Ql5Bfuvo"

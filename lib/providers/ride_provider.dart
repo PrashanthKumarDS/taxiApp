@@ -99,12 +99,16 @@ class RideProvider extends ChangeNotifier {
   Future<void> cancelActiveRide() async {
     final id = _activeRide?.rideId ?? _watchedRideId;
     if (id == null) return;
+    final rideSnapshot = _activeRide;
     await _rides.cancelRide(id);
     _rideSub?.cancel();
     _rideSub = null;
     _activeRide = null;
     _watchedRideId = null;
     notifyListeners();
+    if (rideSnapshot != null) {
+      await _sendCancelWhatsAppNotification(rideSnapshot);
+    }
   }
 
   void clearLocalRide() {
@@ -152,6 +156,29 @@ class RideProvider extends ChangeNotifier {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
       debugPrint('WhatsApp launch failed: $e');
+    }
+  }
+
+  Future<void> _sendCancelWhatsAppNotification(RideModel ride) async {
+    final pickup = ride.pickup.address ?? '${ride.pickup.latitude}, ${ride.pickup.longitude}';
+    final drop = ride.drop.address ?? '${ride.drop.latitude}, ${ride.drop.longitude}';
+    final userName = _user?.name ?? 'A user';
+    final userPhone = _user?.phone ?? '';
+
+    final message = '❌ Ride Cancelled\n\n'
+        '👤 Name: $userName\n'
+        '📞 Phone: $userPhone\n\n'
+        '📍 Pickup: $pickup\n'
+        '📍 Drop: $drop\n\n'
+        'The customer has cancelled this ride request.';
+
+    final uri = Uri.parse(
+      'https://wa.me/$_whatsappNumber?text=${Uri.encodeComponent(message)}',
+    );
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('WhatsApp cancel launch failed: $e');
     }
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dotlottie_loader/dotlottie_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
@@ -5,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:taxi_app/core/constants/feature_flags.dart';
 import 'package:taxi_app/core/services/user_firestore_service.dart';
 import 'package:taxi_app/core/theme/app_theme.dart';
-import 'package:taxi_app/core/utils/user_role.dart';
 import 'package:taxi_app/features/auth/screens/profile_setup_screen.dart';
 import 'package:taxi_app/providers/auth_provider.dart';
 import 'package:taxi_app/shared/widgets/primary_button.dart';
@@ -21,18 +22,26 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   final _phoneCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
   bool _otpStep = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Don't pre-fill - let user type the full number or it auto-converts
-  }
+  int _resendCountdown = 0;
+  Timer? _resendTimer;
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
     _otpCtrl.dispose();
+    _resendTimer?.cancel();
     super.dispose();
+  }
+
+  void _startResendTimer() {
+    _resendCountdown = 30;
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      setState(() {
+        _resendCountdown--;
+        if (_resendCountdown <= 0) t.cancel();
+      });
+    });
   }
 
   String _normalizePhone(String raw) {
@@ -144,6 +153,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           await auth.requestOtp(p);
                           if (!context.mounted) return;
                           if (auth.verificationId != null) {
+                            _startResendTimer();
                             setState(() => _otpStep = true);
                           }
                         },
@@ -184,15 +194,42 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           }
                         },
                       ),
-                      TextButton(
-                        onPressed: auth.isBusy
-                            ? null
-                            : () {
-                                _otpCtrl.clear();
-                                auth.clearError();
-                                setState(() => _otpStep = false);
-                              },
-                        child: const Text('Change number'),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextButton(
+                            onPressed: auth.isBusy
+                                ? null
+                                : () {
+                                    _otpCtrl.clear();
+                                    auth.clearError();
+                                    _resendTimer?.cancel();
+                                    setState(() {
+                                      _otpStep = false;
+                                      _resendCountdown = 0;
+                                    });
+                                  },
+                            child: const Text('Change number'),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: (auth.isBusy || _resendCountdown > 0)
+                                ? null
+                                : () async {
+                                    final p = _normalizePhone(_phoneCtrl.text);
+                                    await auth.requestOtp(p);
+                                    if (!context.mounted) return;
+                                    if (auth.verificationId != null) {
+                                      _startResendTimer();
+                                    }
+                                  },
+                            child: Text(
+                              _resendCountdown > 0
+                                  ? 'Resend (${_resendCountdown}s)'
+                                  : 'Resend OTP',
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ] else ...[

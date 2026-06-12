@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nslookup mytowncabs.in ns73.domaincontrol.com)",
+      "Bash(nslookup -type=TXT mytowncabs.in ns73.domaincontrol.com)"
+    ]
+  }
+}
