@@ -1,7 +1,7 @@
 name: taxi_app
 description: Multi-role taxi booking MVP (User, Driver, Admin).
 publish_to: "none"
-version: 1.0.5+6
+version: 1.0.7+13
 
 environment:
   sdk: ^3.8.0
@@ -42,3 +42,4 @@ flutter:
     - assets/images/vehicles/
     - assets/animations/
     - hosting/
+    - shorebird.yaml

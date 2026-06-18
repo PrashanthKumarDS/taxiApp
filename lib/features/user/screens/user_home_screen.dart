@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:lottie/lottie.dart' hide Marker;
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:taxi_app/core/constants/feature_flags.dart';
 import 'package:taxi_app/core/services/geocoding_service.dart';
 import 'package:taxi_app/core/services/location_service.dart';
@@ -12,6 +13,7 @@ import 'package:taxi_app/core/theme/app_theme.dart';
 import 'package:taxi_app/core/utils/ride_status.dart';
 import 'package:taxi_app/features/map/widgets/taxi_google_map.dart';
 import 'package:taxi_app/features/user/screens/location_search_screen.dart';
+import 'package:taxi_app/features/user/screens/packages_screen.dart';
 import 'package:taxi_app/features/user/screens/user_history_screen.dart';
 import 'package:taxi_app/features/user/screens/user_profile_screen.dart';
 import 'package:taxi_app/models/geo_lat_lng.dart';
@@ -972,6 +974,15 @@ class _UserHomeMapBodyState extends State<_UserHomeMapBody> {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            _BookPackageCard(
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const PackagesScreen(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
                             Text(
                               'Where to?',
                               style: Theme.of(context).textTheme.titleMedium,
@@ -1151,11 +1162,94 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                       );
                     }),
                     const SizedBox(height: 12),
-                    Text(
-                      'Estimated ${est.toStringAsFixed(0)} (cash)',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Terms & Conditions Apply',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Sedan / Mini Car – ₹11 per km',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'SUV Car – ₹15 per km',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Minimum Billing: 300 km per day',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Additional Charges:',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '• Toll Charges – Extra',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '• Driver Batta – ₹500 per day',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Fuel charges included. Parking charges, if any, will be extra.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.accent.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              const Text(
+                                '📞 For Customized Trips: ',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () => launchUrl(
+                                  Uri.parse('tel:7829975777'),
+                                  mode: LaunchMode.externalApplication,
+                                ),
+                                child: const Text(
+                                  '7829975777',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.accent,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -1361,6 +1455,65 @@ class _ActiveRideCard extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _BookPackageCard extends StatelessWidget {
+  const _BookPackageCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.accent.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.accent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.card_travel, color: Colors.white),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Book a Package',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: AppTheme.accent,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Sightseeing & fixed-route tour packages',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.accent.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppTheme.accent),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

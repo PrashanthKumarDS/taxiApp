@@ -74,7 +74,7 @@ class AuthService {
   }) {
     return _auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
-      verificationCompleted: verificationCompleted,
+      verificationCompleted: (_) {}, // Disable auto-verification, require manual entry
       verificationFailed: verificationFailed,
       codeSent: codeSent,
       codeAutoRetrievalTimeout: codeAutoRetrievalTimeout,

@@ -23,23 +23,48 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   final _otpCtrl = TextEditingController();
   bool _otpStep = false;
   int _resendCountdown = 0;
+  int _otpExpiryCountdown = 0;
   Timer? _resendTimer;
+  Timer? _otpExpiryTimer;
 
   @override
   void dispose() {
     _phoneCtrl.dispose();
     _otpCtrl.dispose();
     _resendTimer?.cancel();
+    _otpExpiryTimer?.cancel();
     super.dispose();
   }
 
   void _startResendTimer() {
-    _resendCountdown = 30;
+    _resendCountdown = 15;
     _resendTimer?.cancel();
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       setState(() {
         _resendCountdown--;
         if (_resendCountdown <= 0) t.cancel();
+      });
+    });
+  }
+
+  void _startOtpExpiryTimer() {
+    _otpExpiryCountdown = 60;
+    _otpExpiryTimer?.cancel();
+    _otpExpiryTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      setState(() {
+        _otpExpiryCountdown--;
+        if (_otpExpiryCountdown <= 0) {
+          t.cancel();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('SMS code expired. Please request a new one.'),
+                backgroundColor: Colors.redAccent,
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+        }
       });
     });
   }
@@ -124,6 +149,16 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           prefixIcon: Icon(Icons.sms_outlined),
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Code expires in: ${_otpExpiryCountdown}s',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _otpExpiryCountdown < 30
+                            ? Colors.redAccent
+                            : AppTheme.accent.withValues(alpha: 0.6),
+                        ),
+                      ),
                     ],
                     if (auth.errorMessage != null) ...[
                       const SizedBox(height: 12),
@@ -150,10 +185,12 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                             );
                             return;
                           }
+                          await auth.logout();
                           await auth.requestOtp(p);
                           if (!context.mounted) return;
                           if (auth.verificationId != null) {
                             _startResendTimer();
+                            _startOtpExpiryTimer();
                             setState(() => _otpStep = true);
                           }
                         },
@@ -162,7 +199,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       PrimaryButton(
                         label: 'Verify & continue',
                         loading: auth.isBusy,
-                        onPressed: () async {
+                        onPressed: _otpExpiryCountdown <= 0
+                            ? null
+                            : () async {
                           await auth.verifyOtp(_otpCtrl.text);
                           if (!context.mounted) return;
                           if (auth.firebaseUser != null &&
@@ -204,9 +243,11 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                     _otpCtrl.clear();
                                     auth.clearError();
                                     _resendTimer?.cancel();
+                                    _otpExpiryTimer?.cancel();
                                     setState(() {
                                       _otpStep = false;
                                       _resendCountdown = 0;
+                                      _otpExpiryCountdown = 0;
                                     });
                                   },
                             child: const Text('Change number'),
@@ -221,6 +262,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                     if (!context.mounted) return;
                                     if (auth.verificationId != null) {
                                       _startResendTimer();
+                                      _startOtpExpiryTimer();
                                     }
                                   },
                             child: Text(

@@ -157,9 +157,23 @@ class AuthProvider extends ChangeNotifier {
       final result = await _auth.signInWithCredential(cred);
       // Set immediately so callers don't have to wait for authStateChanges stream.
       _firebaseUser = result.user;
+      print('OTP Verification Success: User ${result.user?.uid} authenticated');
     } on FirebaseAuthException catch (e) {
-      _errorMessage = e.message ?? e.code;
+      // Log the full error for debugging
+      print('FirebaseAuth Error - Code: ${e.code}, Message: ${e.message}, Plugin: ${e.plugin}');
+      // Handle expired SMS code
+      if (e.code == 'session-expired' ||
+          e.code == 'invalid-verification-code' ||
+          e.message?.contains('expired') == true ||
+          e.message?.contains('too old') == true ||
+          e.message?.contains('invalid') == true) {
+        _errorMessage = 'The SMS code has expired or is invalid. Please request a new one.';
+        _verificationId = null; // Clear to force new OTP request
+      } else {
+        _errorMessage = e.message ?? e.code;
+      }
     } catch (e) {
+      print('OTP Verification Error: $e');
       _errorMessage = e.toString();
     } finally {
       _busy = false;

@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(nslookup mytowncabs.in ns73.domaincontrol.com)",
-      "Bash(nslookup -type=TXT mytowncabs.in ns73.domaincontrol.com)"
+      "Bash(nslookup -type=TXT mytowncabs.in ns73.domaincontrol.com)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(keytool -list -v -keystore /Users/dost/upload-keystore.jks -alias upload -storepass \"7B6haWSLid6OtFiC3Li3\")"
     ]
   }
 }
