@@ -1211,7 +1211,7 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '• Driver Batta – ₹500 per day',
+                            '• Driver Batta – ₹1000 per day',
                             style: const TextStyle(fontSize: 14),
                           ),
                           const SizedBox(height: 10),
@@ -1226,7 +1226,7 @@ void _openVehicleSheet(BuildContext context, {required bool manualMode}) {
                           Row(
                             children: [
                               const Text(
-                                '📞 For Customized Trips: ',
+                                '📞 For Customized Trips or One Way Trips: ',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
